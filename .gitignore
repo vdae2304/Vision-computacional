@@ -1,0 +1,6 @@
+#Folders
+.ipynb_checkpoints/
+__pycache__/
+#Files
+mnist_train.csv
+mnist_test.csv
