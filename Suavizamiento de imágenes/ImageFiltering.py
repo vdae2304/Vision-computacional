@@ -65,7 +65,7 @@ def gaussian_blur(img, ksize, std = 1, padding = None):
     Argumentos:
         img : ndarray de tamaño (height, width, channels)
             Imagen sobre la cual se aplicará el filtro.
-        ksize : int
+        ksize : (int, int)
             Tamaño del kernel.
         std : float
             Desviación estándar.
@@ -75,10 +75,14 @@ def gaussian_blur(img, ksize, std = 1, padding = None):
         img_out : ndarray de tamaño (height, width, channels)
             Imagen resultante.
     '''
-    kernel = gaussian_kernel(ksize, std)
+    kheight, kwidth = ksize
+    vkernel = gaussian_kernel(kheight, std).reshape(-1, 1)
+    hkernel = gaussian_kernel(kwidth, std).reshape(1, -1)
+    
     img_out = img.copy()
-    img_out = filter2d(img_out, kernel[np.newaxis, :], padding)
-    img_out = filter2d(img_out, kernel[:, np.newaxis], padding)
+    img_out = filter2d(img_out, hkernel, padding)
+    img_out = filter2d(img_out, vkernel, padding)
+    
     return img_out
 
 def median_filter(img, ksize, padding = None):
@@ -87,7 +91,7 @@ def median_filter(img, ksize, padding = None):
     Argumentos:
         img : ndarray de tamaño (height, width, channels)
             Imagen sobre la cual se aplicará el filtro.
-        ksize : int
+        ksize : (int, int)
             Tamaño del kernel.
         padding : {None, 'constant', 'edge', 'reflect', 'symmetric', 'wrap'}
             Relleno a agregar en los bordes. Por defecto None.
@@ -95,22 +99,26 @@ def median_filter(img, ksize, padding = None):
         img_out : ndarray de tamaño (height, width, channels)
             Imagen resultante.
     '''
-    pad = ksize // 2
-    if ksize % 2 == 0:
+    kheight, kwidth = ksize
+    vpad = kheight // 2
+    hpad = kwidth // 2
+    
+    if kheight % 2 == 0 or kwidth % 2 == 0:
         raise ValueError('El tamaño del kernel debe ser impar.')
     if padding is not None:
-        img = np.pad(img, [(pad, pad), (pad, pad), (0, 0)], padding)
+        img = np.pad(img, [(vpad, vpad), (hpad, hpad), (0, 0)], padding)
     
     height, width, nchannels = img.shape
     img_out = img.copy()
     
-    for i in range(pad, height - pad):
-        for j in range(pad, width - pad):
-            window = img[(i - pad):(i + pad + 1), (j - pad):(j + pad + 1), :]
+    for i in range(vpad, height - vpad):
+        for j in range(hpad, width - hpad):
+            window = img[(i - vpad):(i + vpad + 1), 
+                         (j - hpad):(j + hpad + 1), :]
             img_out[i, j, :] = np.median(window, axis = (0, 1))
     
     if padding is not None:
-        img_out = img_out[pad:(height - pad), pad:(width - pad), :]
+        img_out = img_out[vpad:(height - vpad), hpad:(width - hpad), :]
     
     return img_out
 
@@ -147,14 +155,12 @@ def sobel(img, dx, dy, padding = None):
     
     return img_out
 
-def anisotropic_diffusion(img, K, coef, step = 0.1, niter = 10):
+def anisotropic_diffusion(img, coef, K, step = 0.1, niter = 10):
     '''
     Aplica el algoritmo de difusión anisotrópica sobre una imagen.
     Argumentos:
         img : ndarray de tamaño (height, width, channels)
             Imagen sobre la cual se aplicará el algoritmo.
-        K : float
-            Grado de sensibilidad a los bordes.
         coef : {'exp', 'inv'}
             Coeficiente de difusión a utilizar. Debe ser alguno de los 
             siguientes:
@@ -162,6 +168,8 @@ def anisotropic_diffusion(img, K, coef, step = 0.1, niter = 10):
                     exp(-(|grad|/K)**2)
                 'inv':
                     1/(1 + (|grad|/K)**2)
+        K : float
+            Grado de sensibilidad a los bordes.
         step : float
             Tamaño de paso entre cada iteración.    
         niter : int
